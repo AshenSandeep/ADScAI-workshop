@@ -1,0 +1,36 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# env
+.env
+.env.*
+!.env.example
+
+# db
+*.db
+*.db-journal
+prisma/dev.db
+prisma/migrations/dev.db*
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# editor
+.DS_Store
+.vscode/
+.idea/
+
+# test
+coverage/
+playwright-report/
+test-results/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

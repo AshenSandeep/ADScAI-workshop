@@ -1,0 +1,82 @@
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+const DEMO_USER_ID = "user_demo";
+
+const MENU_SEED = [
+  { name: "Chicken Biryani", description: "Slow-cooked basmati with chicken and saffron", priceCents: 350, category: "main", available: true },
+  { name: "Paneer Butter Masala", description: "Cottage cheese in a tomato-cream gravy", priceCents: 320, category: "main", available: true },
+  { name: "Veg Thali", description: "Daily vegetarian platter with dal, sabzi, rice, roti", priceCents: 280, category: "main", available: true },
+  { name: "Fish Curry & Rice", description: "House fish curry with steamed rice", priceCents: 360, category: "main", available: false },
+  { name: "Masala Dosa", description: "Crispy rice crepe with potato filling", priceCents: 200, category: "main", available: true },
+  { name: "Masala Chai", description: "Spiced milk tea", priceCents: 50, category: "drink", available: true },
+  { name: "Filter Coffee", description: "South-Indian filter coffee", priceCents: 60, category: "drink", available: true },
+  { name: "Fresh Lime Soda", description: "Sweet or salted", priceCents: 80, category: "drink", available: true },
+  { name: "Samosa", description: "Two pieces, mint chutney", priceCents: 90, category: "snack", available: true },
+  { name: "Banana Chips", description: "Kerala style, lightly salted", priceCents: 70, category: "snack", available: true },
+];
+
+async function main() {
+  console.log("Resetting menu, orders, items…");
+  await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
+  await prisma.menuItem.deleteMany();
+
+  console.log("Seeding menu items…");
+  for (const item of MENU_SEED) {
+    await prisma.menuItem.create({ data: item });
+  }
+
+  const menu = await prisma.menuItem.findMany();
+  const biryani = menu.find((m) => m.name === "Chicken Biryani")!;
+  const chai = menu.find((m) => m.name === "Masala Chai")!;
+  const dosa = menu.find((m) => m.name === "Masala Dosa")!;
+  const samosa = menu.find((m) => m.name === "Samosa")!;
+
+  console.log("Seeding sample orders…");
+  await prisma.order.create({
+    data: {
+      userId: DEMO_USER_ID,
+      status: "ready",
+      totalCents: biryani.priceCents + chai.priceCents,
+      notes: "less spicy please",
+      items: {
+        create: [
+          { menuItemId: biryani.id, quantity: 1, unitPriceCents: biryani.priceCents },
+          { menuItemId: chai.id, quantity: 1, unitPriceCents: chai.priceCents },
+        ],
+      },
+    },
+  });
+
+  await prisma.order.create({
+    data: {
+      userId: DEMO_USER_ID,
+      status: "pending",
+      totalCents: dosa.priceCents + samosa.priceCents * 2,
+      items: {
+        create: [
+          { menuItemId: dosa.id, quantity: 1, unitPriceCents: dosa.priceCents },
+          { menuItemId: samosa.id, quantity: 2, unitPriceCents: samosa.priceCents },
+        ],
+      },
+    },
+  });
+
+  const counts = {
+    menu: await prisma.menuItem.count(),
+    orders: await prisma.order.count(),
+    items: await prisma.orderItem.count(),
+  };
+  console.log("Done:", counts);
+}
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
