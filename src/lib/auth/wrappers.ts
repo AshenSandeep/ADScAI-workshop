@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export type AuthContext = {
   userId: string;
@@ -7,6 +8,7 @@ export type AuthContext = {
     id: string;
     email: string;
     name: string;
+    isStaff: boolean;
   };
 };
 
@@ -26,14 +28,29 @@ export function withAuth(handler: Handler) {
     if (!session?.user) {
       return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
     }
+    const rows = (await prisma.$queryRawUnsafe(
+      'SELECT "isStaff" FROM "user" WHERE "id" = ? LIMIT 1',
+      session.user.id,
+    )) as Array<{ isStaff: boolean }>;
+    const isStaff = rows[0]?.isStaff ?? false;
     const authCtx: AuthContext = {
       userId: session.user.id,
       user: {
         id: session.user.id,
         email: session.user.email,
         name: session.user.name,
+        isStaff,
       },
     };
     return handler(req, authCtx, ctx);
   };
+}
+
+export function withStaffAuth(handler: Handler) {
+  return withAuth(async (req, ctx, params) => {
+    if (!ctx.user.isStaff) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+    return handler(req, ctx, params);
+  });
 }
