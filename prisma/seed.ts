@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import { auth } from "../src/lib/auth";
 
 const prisma = new PrismaClient();
+const db = prisma as any;
 
 const MENU_SEED = [
   { name: "Chicken Biryani", description: "Slow-cooked basmati with chicken and saffron", priceCents: 350, category: "main", available: true },
@@ -17,18 +18,29 @@ const MENU_SEED = [
 ];
 
 const USERS_SEED = [
-  { name: "Asha Patel",   email: "asha@example.com",   password: "asha-password-1" },
-  { name: "Ravi Kumar",   email: "ravi@example.com",   password: "ravi-password-1" },
-  { name: "Maya Iyer",    email: "maya@example.com",   password: "maya-password-1" },
+  { name: "Asha Patel",   email: "asha@example.com",   password: "asha-password-1", isStaff: false },
+  { name: "Ravi Kumar",   email: "ravi@example.com",   password: "ravi-password-1", isStaff: true },
+  { name: "Maya Iyer",    email: "maya@example.com",   password: "maya-password-1", isStaff: false },
 ];
 
 async function ensureUser(u: (typeof USERS_SEED)[number]) {
-  const existing = await prisma.user.findUnique({ where: { email: u.email } });
-  if (existing) return existing;
+  const existing = await db.user.findUnique({ where: { email: u.email } });
+  if (existing) {
+    if (existing.isStaff !== u.isStaff) {
+      return db.user.update({
+        where: { id: existing.id },
+        data: { isStaff: u.isStaff },
+      });
+    }
+    return existing;
+  }
   const res = await auth.api.signUpEmail({
     body: { email: u.email, password: u.password, name: u.name },
   });
-  return prisma.user.findUniqueOrThrow({ where: { email: res.user.email } });
+  return db.user.update({
+    where: { email: res.user.email },
+    data: { isStaff: u.isStaff },
+  });
 }
 
 async function main() {
@@ -58,10 +70,12 @@ async function main() {
 
   console.log("Seeding sample orders for first user…");
   const [primary] = users;
-  await prisma.order.create({
+  await db.order.create({
     data: {
       userId: primary.id,
       status: "ready",
+      preparingAt: new Date(Date.now() - 20 * 60 * 1000),
+      readyAt: new Date(Date.now() - 5 * 60 * 1000),
       totalCents: biryani.priceCents + chai.priceCents,
       notes: "less spicy please",
       items: {
@@ -73,10 +87,11 @@ async function main() {
     },
   });
 
-  await prisma.order.create({
+  await db.order.create({
     data: {
       userId: primary.id,
       status: "pending",
+      estimatedReadyAt: new Date(Date.now() + 12 * 60 * 1000),
       totalCents: dosa.priceCents + samosa.priceCents * 2,
       items: {
         create: [

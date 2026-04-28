@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/auth/wrappers";
 import { OrderService } from "@/lib/services/order";
+import { QueueService } from "@/lib/services/queue";
 
 export const GET = withAuth(async (_req, ctx) => {
-  const orders = await OrderService.listForUser(ctx.userId);
-  return NextResponse.json(orders);
+  const [orders, queue] = await Promise.all([
+    OrderService.listForUser(ctx.userId),
+    QueueService.getQueueSummary(),
+  ]);
+  return NextResponse.json({ orders, queue });
 });
 
 export const POST = withAuth(async (req, ctx) => {
