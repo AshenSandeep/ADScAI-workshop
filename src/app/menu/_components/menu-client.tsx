@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth/client";
 
@@ -14,6 +14,13 @@ type MenuItem = {
 };
 
 type Cart = Record<string, number>;
+type QueueSummary = {
+  currentEstimatedWaitMinutes: number;
+  currentQueueSize: number;
+  rangeMinMinutes: number;
+  rangeMaxMinutes: number;
+  updatedAt: string;
+};
 
 function formatPrice(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
@@ -33,6 +40,7 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
+  const [queue, setQueue] = useState<QueueSummary | null>(null);
 
   const byCategory = useMemo(() => {
     return items.reduce<Record<string, MenuItem[]>>((acc, item) => {
@@ -46,6 +54,26 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
   }, [items, cart]);
 
   const totalCount = Object.values(cart).reduce((a, b) => a + b, 0);
+
+  useEffect(() => {
+    let stopped = false;
+    async function loadQueue() {
+      try {
+        const res = await fetch("/api/queue", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = (await res.json()) as QueueSummary;
+        if (!stopped) setQueue(data);
+      } catch {
+        // Best-effort queue widget. The menu remains usable if this fails.
+      }
+    }
+    void loadQueue();
+    const id = window.setInterval(loadQueue, 30000);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   function setQty(id: string, qty: number) {
     setSuccessId(null);
@@ -95,6 +123,33 @@ export function MenuClient({ items }: { items: MenuItem[] }) {
         <p style={{ color: "var(--muted)", margin: 0, fontSize: "1rem" }}>
           Pre-order now — pick it up hot and skip the line.
         </p>
+      </div>
+
+      <div
+        className="card"
+        style={{
+          marginBottom: "1.25rem",
+          padding: "0.85rem 1rem",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "1rem",
+          flexWrap: "wrap",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: "0.75rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Live Queue
+          </div>
+          <strong>
+            {queue
+              ? `${queue.rangeMinMinutes}-${queue.rangeMaxMinutes} min wait`
+              : "Wait time currently unavailable"}
+          </strong>
+        </div>
+        <span style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
+          {queue ? `${queue.currentQueueSize} active orders` : "Loading queue..."}
+        </span>
       </div>
 
       {successId && (

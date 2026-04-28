@@ -201,6 +201,7 @@ textarea {
 }
 
 .badge-pending { background: var(--warning-soft); color: var(--warning); }
+.badge-preparing { background: #eff6ff; color: #1d4ed8; }
 .badge-ready { background: var(--success-soft); color: var(--success); }
 .badge-collected { background: #f1f5f9; color: #334155; }
 .badge-cancelled { background: var(--danger-soft); color: var(--danger); }
